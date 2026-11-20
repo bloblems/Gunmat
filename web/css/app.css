@@ -107,3 +107,11 @@ dialog label { display: flex; flex-direction: column; gap: 5px; color: var(--mut
 #panel .row > select { flex: 1; }
 #pop label { display: flex; flex-direction: column; gap: 3px; color: var(--muted); font-size: 12px; }
 #pop-gs-row[hidden] { display: none; }
+
+#panel[hidden], #art-panel[hidden] { display: none; }
+#art-panel { background: var(--panel); flex-shrink: 0; width: 280px; padding: 16px; overflow-y: auto; border-left: 1px solid var(--line); }
+#art-panel label { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+#art-panel p { font-size: 12px; line-height: 1.5; color: var(--muted); }
+#art-panel select, #art-panel input, #art-panel textarea { width: 100%; }
+#art-panel fieldset { border: 0; padding: 0; margin: 12px 0; min-width: 0; }
+#art-panel :focus-visible, #open-drawing:focus-visible, #sheet:focus-visible { outline: 2px solid #80bfff; outline-offset: 2px; }

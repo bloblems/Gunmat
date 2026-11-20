@@ -10,8 +10,10 @@
 <body>
   <header>
     <button id="open">Open STEP…</button>
+    <button id="open-drawing">Open drawing…</button>
+    <input id="drawing-file" type="file" accept=".svg,.json,image/svg+xml,application/json" hidden>
     <span id="name" class="muted"></span>
-    <span id="status" class="muted"></span>
+    <span id="status" class="muted" role="status"></span>
     <span class="grow"></span>
     <button id="figma" title="SVG with live text: saved and copied, paste into Figma (Alt-click: file for the auto-layout plugin)">Figma</button>
     <button id="png">PNG</button>
@@ -24,6 +26,19 @@
       <div id="empty">Open a STEP assembly, or drop one here.</div>
     </section>
 
+    <aside id="art-panel" hidden>
+      <h4>Drawing layers</h4>
+      <p>Choose a layer or click the artwork. Drag to move it, or use the arrow keys. Save your edits with Export SVG.</p>
+      <label>Layer <select id="art-layers"></select></label>
+      <fieldset id="art-selection" disabled>
+        <label>Text <textarea id="art-text" rows="4"></textarea></label>
+        <label>Fill <input id="art-fill" type="text" placeholder="#ffffff or none"></label>
+        <label>Stroke <input id="art-stroke" type="text" placeholder="#ffffff or none"></label>
+        <label>Line weight <input id="art-width" type="number" min="0" step="0.1"></label>
+        <button id="art-delete">Delete layer</button>
+      </fieldset>
+      <button id="art-undo" disabled>Undo</button>
+    </aside>
     <aside id="panel">
       <h4>View</h4>
       <div id="cube-wrap" title="Click a face, edge or corner. Drag to turn."><div id="cube"></div></div>

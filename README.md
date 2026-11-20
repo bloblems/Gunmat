@@ -25,3 +25,13 @@ Your model and edits stay on your computer. Reopen the same file to keep working
 ## License
 
 You can use, change, and share Gunmat under the [MIT license](LICENSE). The bundled font reader also includes notices for [opentype.js](web/js/vendor/opentype.LICENSE) and [tiny-inflate](web/js/vendor/tiny-inflate.LICENSE).
+
+## Reopen a drawing
+
+Click **Open drawing…** and choose an SVG exported by Gunmat or Figma, or a Gunmat Figma plugin JSON file. Gunmat detects the file format and opens its existing artwork immediately.
+
+Choose a layer from the list or click the artwork. Drag to move it, use arrow keys for small moves, edit live text, or change fill, stroke, and line weight. **Undo** reverses edits. **Export SVG** saves a version you can reopen again, **Figma** saves an SVG for Figma, and **PNG** saves an image.
+
+For a drawing changed in Figma, export the frame as SVG first. Keep text as text in Figma's SVG export settings if you want to edit the words in Gunmat. Outlined letters remain editable vector shapes. Older plugin JSON files are reconstructed from their saved pieces and may need text spacing adjustments. New plugin files include the complete SVG.
+
+Drawing edits stay in the open page until you export them. Save your SVG before closing the page or opening another file.

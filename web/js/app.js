@@ -1,5 +1,7 @@
 // One-screen mat maker: open a STEP file, get an exploded blueprint on a mat.
 
+import { createDrawingEditor } from './drawing-editor.js';
+
 import { parse as parseFont } from './vendor/opentype.js';
 
 const $ = (s) => document.querySelector(s);
@@ -74,6 +76,34 @@ function el(tag, attrs = {}, parent) {
 }
 
 const status = (msg) => ($('#status').textContent = msg || '');
+const artwork = createDrawingEditor({
+  sheet: $('#sheet'), panel: $('#art-panel'), status,
+  onOpen() {
+    clearTimeout(drawTimer);
+    clearTimeout(saveTimer);
+    ++reqId;
+    refreshPending = false;
+    $('#sheet').classList.remove('busy');
+    $('#panel').hidden = true;
+    $('#art-panel').hidden = false;
+    $('#empty').hidden = true;
+    closePops();
+  },
+});
+$('#sheet').setAttribute('tabindex', '0');
+$('#sheet').setAttribute('aria-label', 'Drawing canvas');
+$('#open-drawing').onclick = () => $('#drawing-file').click();
+$('#drawing-file').onchange = async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    await artwork.open(file);
+    $('#name').textContent = file.name;
+    document.title = file.name;
+  } catch (err) { status(err.message); }
+};
+
 function busy(msg) {
   $('#busy-msg').textContent = msg;
   $('#busy').hidden = !msg;
@@ -232,7 +262,7 @@ function numbering() {
 // ---------------------------------------------------------------- saving
 let saveTimer;
 function save() {
-  if (!model) return;
+  if (!model || artwork.active) return;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => api('PUT', '/api/state', { source: model.source, state: S }).catch(() => {}), 600);
 }
@@ -634,6 +664,7 @@ function buildSheet(svg, forExport = false) {
 }
 
 function render() {
+  if (artwork.active) return;
   if (!model) return;
   buildSheet($('#sheet'));
 }
@@ -659,6 +690,7 @@ async function flushRefresh() {
   }
 }
 function redraw(delay = 0) {
+  if (artwork.active) return;
   clearTimeout(drawTimer);
   // Invalidate an old response immediately, before the debounce expires.
   ++reqId;
@@ -677,7 +709,7 @@ function frameFor(keep) {
 let nudgeNext = null; // parts just dropped: the server slides them off any overlap
 let refitNext = false; // after a drop: scale up to fill the space again
 async function requestDrawing(engine, keep = false, retry = true) {
-  if (!model) return null;
+  if (!model || artwork.active) return null;
   const nudge = nudgeNext || [];
   nudgeNext = null;
   L = computeLayout();
@@ -734,6 +766,12 @@ async function open({ path, file }) {
       fd.append('file', file);
       info = await api('POST', '/api/upload', fd);
     } else info = await api('POST', '/api/open', { path });
+    clearTimeout(drawTimer);
+    clearTimeout(saveTimer);
+    ++reqId;
+    artwork.clear();
+    $('#panel').hidden = false;
+    $('#art-panel').hidden = true;
     model = info;
     const d = DEFAULTS();
     const sv = info.saved || {};
@@ -815,7 +853,15 @@ stage.addEventListener('drop', (e) => {
   const files = [...e.dataTransfer.files];
   const step = files.find((f) => /\.(step|stp)$/i.test(f.name));
   if (step) open({ file: step });
-  else if (model) for (const f of files) if (/\.(svg|png|jpe?g)$/i.test(f.name)) addImage(f);
+  else if (files.some((f) => /\.json$/i.test(f.name)) || !model || artwork.active) {
+    const file = files.find((f) => /\.(svg|json)$/i.test(f.name));
+    if (file) {
+      artwork.open(file).then(() => {
+        $('#name').textContent = file.name;
+        document.title = file.name;
+      }).catch((err) => status(err.message));
+    }
+  } else if (model) for (const f of files) if (/\.(svg|png|jpe?g)$/i.test(f.name)) addImage(f);
 });
 
 // ---------------------------------------------------------------- view cube
@@ -1325,6 +1371,7 @@ function download(blob, name) {
 }
 
 async function finalSVG() {
+  if (artwork.active) return artwork.serialize();
   busy('Making final lines…');
   try {
     if (drawing?.engine !== 'exact') await requestDrawing('exact', true);
@@ -1350,7 +1397,12 @@ async function figmaFile() {
   try {
     if (drawing?.engine !== 'exact') await requestDrawing('exact', true);
     const out = document.createElementNS(NS, 'svg');
-    buildSheet(out, true); // live <text>; also refreshes L
+    LIVE = true;
+    try {
+      buildSheet(out, true); // real font families for reopening on another run
+    } finally {
+      LIVE = false;
+    }
     const { W, H } = L;
     const PX = 96 / MM;
     const fc = faces();
@@ -1404,7 +1456,7 @@ async function figmaFile() {
     const logos = lb.length
       ? { corner: S.logo.corner, gap: lb[0].h * 0.3, items: lb.map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h, svg: `<svg xmlns="${NS}" width="${r2(b.w * PX)}" height="${r2(b.h * PX)}" viewBox="${r2(b.x)} ${r2(b.y)} ${r2(b.w)} ${r2(b.h)}">${ser(out.querySelector(`#logo-${b.im.id}`))}</svg>` })) }
       : null;
-    return JSON.stringify({ kind: 'mat', name: S.text.title || model.name, W, H, px: PX, bg: S.mat.bg, fg: S.mat.fg, drawing: piece('#drawing'), assembled: piece('#assembled'), leaders, textX: L.m, textW: L.colW, blocks, list, numbers, logos });
+    return JSON.stringify({ kind: 'mat', name: S.text.title || model.name, W, H, px: PX, bg: S.mat.bg, fg: S.mat.fg, drawing: piece('#drawing'), assembled: piece('#assembled'), leaders, textX: L.m, textW: L.colW, blocks, list, numbers, logos, svg: ser(out) });
   } finally {
     busy('');
   }
@@ -1413,6 +1465,11 @@ async function figmaFile() {
 // copied so it can be pasted into Figma with Cmd+V. Alt-click saves the file for
 // the auto-layout plugin in figma-plugin/ instead.
 $('#figma').onclick = async (e) => {
+  if (artwork.active) {
+    download(new Blob([artwork.serialize()], { type: 'image/svg+xml' }), `${fileName()} (Figma).svg`);
+    status('Saved the edited SVG. Drag it into Figma.');
+    return;
+  }
   if (!model) return;
   if (e.altKey) {
     download(new Blob([await figmaFile()], { type: 'application/json' }), `${fileName()}-figma.json`);
@@ -1444,14 +1501,14 @@ $('#figma').onclick = async (e) => {
   status(copied ? 'Copied. Paste into Figma with Cmd+V, or drag the saved SVG in.' : 'Saved. Drag the SVG into Figma.');
 };
 
-const fileName = () => (S.text.title || model?.name || 'mat').replace(/[^\w\- ]+/g, '').trim() || 'mat';
+const fileName = () => (artwork.active ? artwork.name : S.text.title || model?.name || 'mat').replace(/[^\w\- ]+/g, '').trim() || 'mat';
 
 $('#svg').onclick = async () => {
-  if (!model) return;
+  if (!model && !artwork.active) return;
   download(new Blob([await finalSVG()], { type: 'image/svg+xml' }), `${fileName()}.svg`);
 };
 $('#png').onclick = async () => {
-  if (!model) return;
+  if (!model && !artwork.active) return;
   const str = await finalSVG();
   busy('Making PNG…');
   try {
@@ -1462,7 +1519,7 @@ $('#png').onclick = async () => {
       img.onerror = rej;
       img.src = url;
     });
-    const [w, h] = S.mat.size.split('x').map(Number);
+    const [w, h] = artwork.active ? artwork.dimensions().map((v) => v / 96) : S.mat.size.split('x').map(Number);
     const c = document.createElement('canvas');
     c.width = Math.round(w * 150);
     c.height = Math.round(h * 150);
