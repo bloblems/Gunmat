@@ -99,6 +99,57 @@ export function pluginArtwork(data, document, parser = new DOMParser()) {
   return xml(root);
 }
 
+// A flattened line drawing can hold many independent contours in one path.
+// Give each contour an absolute start so relative path commands keep their shape.
+export function splitPathData(data) {
+  const pattern = /[a-zA-Z]|[-+]?(?:\d*\.\d+|\d+\.?\d*)(?:[eE][-+]?\d+)?/g;
+  const tokens = data.match(pattern) || [];
+  if (data.replace(pattern, '').replace(/[\s,]/g, '')) throw new Error('This path contains unsupported data.');
+  const counts = { M: 2, L: 2, H: 1, V: 1, C: 6, S: 4, Q: 4, T: 2, A: 7 };
+  const paths = [];
+  let command = null;
+  let current = [];
+  let x = 0, y = 0, startX = 0, startY = 0;
+  let at = 0;
+  while (at < tokens.length) {
+    if (/^[a-z]$/i.test(tokens[at])) command = tokens[at++];
+    if (!command) throw new Error('This path has no starting point.');
+    const upper = command.toUpperCase();
+    const relative = upper !== command;
+    if (upper === 'Z') {
+      current.push(command);
+      x = startX;
+      y = startY;
+      command = null;
+      continue;
+    }
+    const count = counts[upper];
+    const values = tokens.slice(at, at + count).map(Number);
+    if (!count || values.length !== count || !values.every(Number.isFinite)) throw new Error('This path contains unsupported data.');
+    at += count;
+    if (upper === 'M') {
+      if (current.length) paths.push(current.join(' '));
+      x = values[0] + (relative ? x : 0);
+      y = values[1] + (relative ? y : 0);
+      startX = x;
+      startY = y;
+      current = ['M', x, y];
+      command = relative ? 'l' : 'L';
+      continue;
+    }
+    if (!current.length) throw new Error('This path has no starting point.');
+    current.push(command, ...values);
+    if (upper === 'H') x = values[0] + (relative ? x : 0);
+    else if (upper === 'V') y = values[0] + (relative ? y : 0);
+    else {
+      x = values[count - 2] + (relative ? x : 0);
+      y = values[count - 1] + (relative ? y : 0);
+    }
+  }
+  if (current.length) paths.push(current.join(' '));
+  return paths;
+}
+
 export function createDrawingEditor({ sheet, panel, status, onOpen }) {
   let root = null;
   let name = 'drawing';
@@ -135,6 +186,10 @@ export function createDrawingEditor({ sheet, panel, status, onOpen }) {
     $('layers').value = node ? String(all.indexOf(node)) : '';
     $('selection').disabled = !node;
     $('text').disabled = node?.localName !== 'text';
+    $('inside').disabled = !node?.querySelector(EDITABLE);
+    $('parent').disabled = !node || node.parentElement === root;
+    $('separate').disabled = node?.localName !== 'path';
+
     const spans = node?.localName === 'text' ? [...node.querySelectorAll('tspan')] : [];
     const multiline = spans.length > 1 && spans.slice(1).every((span) => span.hasAttribute('dy') || (span.hasAttribute('y') && span.getAttribute('y') !== spans[0].getAttribute('y')));
     $('text').value = node?.localName === 'text' ? (multiline ? spans.map((span) => span.textContent).join('\n') : node.textContent) : '';
@@ -170,6 +225,40 @@ export function createDrawingEditor({ sheet, panel, status, onOpen }) {
     paintSelection();
   };
   $('layers').onchange = () => select($('layers').value === '' ? null : layers()[+$('layers').value]);
+  $('inside').onclick = () => {
+    const child = selected?.querySelector(EDITABLE);
+    if (child) select(child);
+  };
+  $('parent').onclick = () => {
+    const parent = selected?.parentElement;
+    if (parent && parent !== root) select(parent);
+  };
+  $('separate').onclick = () => {
+    if (selected?.localName !== 'path') return;
+    const style = getComputedStyle(selected);
+    if (style.fill !== 'none' && style.fill !== 'transparent' && style.fillOpacity !== '0') {
+      return status('This is a filled shape. Separating its contours could change holes and lettering. Choose an existing child layer, or export separate parts from Figma.');
+    }
+    let contours;
+    try { contours = splitPathData(selected.getAttribute('d') || ''); }
+    catch (err) { return status(err.message); }
+    if (contours.length < 2) return status('This path has one connected contour. Select another layer to find a separate part.');
+    snapshot();
+    const group = document.createElementNS(NS, 'g');
+    const label = selected.id || 'Separated path';
+    // Keep transforms, clips, inherited styles, and the original layer identity.
+    for (const attr of selected.attributes) if (attr.name !== 'd') group.setAttributeNS(attr.namespaceURI, attr.name, attr.value);
+    contours.forEach((data, i) => {
+      const path = document.createElementNS(NS, 'path');
+      path.setAttribute('d', data);
+      path.setAttribute('data-name', label + ' / contour ' + (i + 1));
+      group.appendChild(path);
+    });
+    selected.replaceWith(group);
+    refreshLayers();
+    select(group.firstElementChild);
+    status('Separated ' + contours.length + ' contours. Each can now move independently. Undo restores the combined path.');
+  };
   $('text').onchange = () => {
     if (selected?.localName !== 'text') return;
     snapshot();

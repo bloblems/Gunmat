@@ -35,3 +35,5 @@ Choose a layer from the list or click the artwork. Drag to move it, use arrow ke
 For a drawing changed in Figma, export the frame as SVG first. Keep text as text in Figma's SVG export settings if you want to edit the words in Gunmat. Outlined letters remain editable vector shapes. Older plugin JSON files are reconstructed from their saved pieces and may need text spacing adjustments. New plugin files include the complete SVG.
 
 Drawing edits stay in the open page until you export them. Save your SVG before closing the page or opening another file.
+
+When parts move together in an imported SVG, select their group and use **Select inside** to reach a child layer. **Select parent** goes back up. If the file combines several outlines into one path, **Separate path** splits its contours into individually movable layers. This works on unfilled line drawings. Filled compound shapes need separate layers exported from Figma to preserve their holes and lettering. **Undo** restores the combined path.

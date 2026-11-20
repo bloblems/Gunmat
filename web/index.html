@@ -28,9 +28,14 @@
 
     <aside id="art-panel" hidden>
       <h4>Drawing layers</h4>
-      <p>Choose a layer or click the artwork. Drag to move it, or use the arrow keys. Save your edits with Export SVG.</p>
+      <p>Choose a layer or click the artwork. Use Select inside to reach a child layer. Separate path unlocks contours combined into one line drawing. Drag or use arrow keys to move the selection.</p>
       <label>Layer <select id="art-layers"></select></label>
       <fieldset id="art-selection" disabled>
+        <div class="row">
+          <button id="art-inside" type="button">Select inside</button>
+          <button id="art-parent" type="button">Select parent</button>
+        </div>
+        <button id="art-separate" type="button">Separate path</button>
         <label>Text <textarea id="art-text" rows="4"></textarea></label>
         <label>Fill <input id="art-fill" type="text" placeholder="#ffffff or none"></label>
         <label>Stroke <input id="art-stroke" type="text" placeholder="#ffffff or none"></label>
