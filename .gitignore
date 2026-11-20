@@ -1,0 +1,19 @@
+# Files created when you use the app
+/uploads/
+/projects/
+/previews/
+/exports/
+/.cache/
+*.[sS][tT][eE][pP]
+*.[sS][tT][pP]
+*.brep
+*-figma.json
+
+# Local setup
+.venv/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+.DS_Store
+.env
+.env.*

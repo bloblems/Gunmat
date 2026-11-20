@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Gunmat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header>
+    <button id="open">Open STEP…</button>
+    <span id="name" class="muted"></span>
+    <span id="status" class="muted"></span>
+    <span class="grow"></span>
+    <button id="figma" title="SVG with live text: saved and copied, paste into Figma (Alt-click: file for the auto-layout plugin)">Figma</button>
+    <button id="png">PNG</button>
+    <button id="svg" class="primary">Export SVG</button>
+  </header>
+
+  <main>
+    <section id="stage">
+      <svg id="sheet" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div id="empty">Open a STEP assembly, or drop one here.</div>
+    </section>
+
+    <aside id="panel">
+      <h4>View</h4>
+      <div id="cube-wrap" title="Click a face, edge or corner. Drag to turn."><div id="cube"></div></div>
+      <div class="row">
+        <button id="home" title="Back to the default angle">Home</button>
+        <button id="flip" title="Swap top and bottom">Upside down</button>
+      </div>
+      <label>Spread <input id="spread" type="range" min="0.4" max="2.5" step="0.05"></label>
+      <button id="reset" title="Undo your part moves and lay everything out again">Reset layout</button>
+      <label class="check"><input id="show-asm" type="checkbox"> Assembled view</label>
+      <div class="row" id="asm-row">
+        <select id="asm-corner" title="Corner of the right column"><option value="tr">Top right</option><option value="tl">Top left</option><option value="br">Bottom right</option><option value="bl">Bottom left</option></select>
+        <span class="pt"><input id="asm-w" type="number" min="100" step="10" title="Width in px (96 px = 1 in)"> px wide</span>
+      </div>
+
+      <h4>Text</h4>
+      <div class="field"><div class="lrow"><span>Title</span><span class="pt"><input id="sz-title" type="number" min="12" step="1" title="Size in pt (12 pt minimum)"> pt</span></div><input id="t-title" type="text"></div>
+      <div class="field"><div class="lrow"><span>Subtitle</span><span class="pt"><input id="sz-subtitle" type="number" min="12" step="1" title="Size in pt (12 pt minimum)"> pt</span></div><input id="t-subtitle" type="text"></div>
+      <div class="field"><div class="lrow"><span>Story</span><span class="pt"><input id="sz-story" type="number" min="12" step="1" title="Size in pt (12 pt minimum)"> pt</span></div><textarea id="t-story" rows="5"></textarea></div>
+      <div class="field"><div class="lrow"><span>Specs</span><span class="pt">heading <input id="sz-heading" type="number" min="12" step="1" title="Size in pt (12 pt minimum)"> pt</span><span class="pt">rows <input id="sz-specs" type="number" min="12" step="1" title="Size in pt (12 pt minimum)"> pt</span></div><textarea id="t-specs" rows="5" placeholder="Material: Aluminum&#10;Width: 120 mm"></textarea></div>
+      <div class="field"><div class="lrow"><span>Tagline</span><span class="pt"><input id="sz-tagline" type="number" min="12" step="1" title="Size in pt (12 pt minimum)"> pt</span></div><input id="t-tagline" type="text"></div>
+      <label>Title font <input id="font-title" type="text" list="font-list" spellcheck="false"></label>
+      <label>Text font <input id="font-text" type="text" list="font-list" spellcheck="false"></label>
+      <datalist id="font-list"></datalist>
+
+      <h4>Logos &amp; icons</h4>
+      <button id="add-logo">Add SVGs or images…</button>
+      <div class="row">
+        <select id="logo-corner" title="Corner of the right column"><option value="tr">Top right</option><option value="tl">Top left</option><option value="br">Bottom right</option><option value="bl">Bottom left</option></select>
+        <span class="pt"><input id="logo-h" type="number" min="16" step="2" title="Height in px (96 px = 1 in)"> px tall</span>
+      </div>
+      <input id="logo-file" type="file" accept=".svg,image/svg+xml,image/png,image/jpeg" multiple hidden>
+
+      <h4>Mat</h4>
+      <select id="size"></select>
+      <div class="row">
+        <label class="inline">Background <input id="bg" type="color"></label>
+        <label class="inline">Lines <input id="fg" type="color"></label>
+      </div>
+      <div class="row">
+        <label class="check"><input id="grid-on" type="checkbox"> Grid</label>
+        <select id="grid-size"><option value="0.25">¼ in</option><option value="0.5">½ in</option><option value="1">1 in</option></select>
+      </div>
+      <div class="lrow"><label class="check"><input id="show-numbers" type="checkbox"> Part numbers</label><span class="pt"><input id="sz-numbers" type="number" min="12" step="1" title="Size in pt (12 pt minimum)"> pt</span></div>
+      <label class="check"><input id="show-lines" type="checkbox"> Assembly lines</label>
+
+      <h4>Parts list</h4>
+      <div class="lrow"><label class="check"><input id="show-list" type="checkbox"> Show on mat</label><span class="pt">up to <input id="sz-list" type="number" min="12" step="1" title="Size in pt (12 pt minimum)"> pt</span></div>
+      <div id="parts-names" hidden></div>
+
+      <div id="hidden-box" hidden>
+        <h4>Hidden parts</h4>
+        <div id="hidden-list"></div>
+      </div>
+    </aside>
+  </main>
+
+  <div id="pop" hidden>
+    <input id="pop-name" type="text" placeholder="Name">
+    <input id="pop-num" type="text" placeholder="No.">
+    <div class="row">
+      <button id="pop-hide">Hide</button>
+      <button id="pop-reset">Auto place</button>
+    </div>
+    <label id="pop-gs-row">Group spread <input id="pop-gs" type="range" min="0.3" max="4" step="0.05"></label>
+  </div>
+
+  <div id="img-pop" hidden>
+    <label class="check"><input id="img-tint" type="checkbox"> Use the mat's line color</label>
+    <button id="img-remove">Remove</button>
+  </div>
+
+  <dialog id="dlg">
+    <form method="dialog">
+      <label>Pick a file <input type="file" id="dlg-file" accept=".step,.stp,.STEP,.STP"></label>
+      <label>or paste a path <input type="text" id="dlg-path" placeholder="Full path to your STEP file"></label>
+      <div id="dlg-recent"></div>
+      <div class="row end">
+        <button value="cancel">Cancel</button>
+        <button id="dlg-go" class="primary" value="ok">Open</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="busy" hidden><div><div class="spin"></div><div id="busy-msg"></div></div></div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

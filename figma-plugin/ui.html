@@ -1,0 +1,24 @@
+<div style="font: 12px -apple-system, sans-serif; color: #222; padding: 4px">
+  <p style="margin: 0 0 10px">Pick the <b>.figma.json</b> file saved by the mat app.</p>
+  <input id="f" type="file" accept=".json,application/json">
+  <p id="msg" style="margin: 10px 0 0; color: #666"></p>
+</div>
+<script>
+  const msg = document.getElementById('msg');
+  document.getElementById('f').onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    msg.textContent = 'Building…';
+    try {
+      const data = JSON.parse(await file.text());
+      if (data.kind !== 'mat') throw new Error('This is not a mat file.');
+      parent.postMessage({ pluginMessage: { type: 'build', data } }, '*');
+    } catch (err) {
+      msg.textContent = err.message;
+    }
+  };
+  onmessage = (e) => {
+    const m = e.data.pluginMessage;
+    if (m && m.error) msg.textContent = 'Error: ' + m.error;
+  };
+</script>
